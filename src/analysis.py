@@ -40,7 +40,7 @@ def entrenar_modelo_predictivo(X, y):
 def realizar_analisis_completo(df_encoded, k=3, forzar_entrenamiento=False):
     """
     Realiza el clustering y entrena el modelo predictivo.
-    Ahora también maneja el scaler internamente.
+    Gestiona el guardado y la carga de modelos (artefactos).
     """
     ruta_artefactos = 'artefactos_analisis.pkl'
     artefactos = None
@@ -48,6 +48,7 @@ def realizar_analisis_completo(df_encoded, k=3, forzar_entrenamiento=False):
     if not forzar_entrenamiento:
         artefactos = cargar_artefactos(ruta_artefactos)
 
+    # Definición de las características para cada modelo
     features_cluster = ['Horas_de_estudio_por_semana', 'Horario_preferido', 'Tiene_espacio_estudio',
                         'Frecuencia_repaso_apuntes', 'Usa_tecnicas_estudio', 'Calificacion_promedio']
     features_pred = ['Horas_de_estudio_por_semana', 'Horario_preferido', 'Tiene_espacio_estudio',
@@ -55,12 +56,14 @@ def realizar_analisis_completo(df_encoded, k=3, forzar_entrenamiento=False):
 
     if artefactos is None:
         print("Entrenando nuevos modelos...")
+        # Entrenar modelo de clustering (KMeans)
         scaler = StandardScaler()
         X_cluster_scaled = scaler.fit_transform(df_encoded[features_cluster])
         
         modelo_kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
         modelo_kmeans.fit(X_cluster_scaled)
         
+        # Entrenar modelo de regresión para predicción
         X_pred_data = df_encoded[features_pred]
         y_pred_data = df_encoded['Calificacion_promedio']
         modelo_regresion = entrenar_modelo_predictivo(X_pred_data, y_pred_data)
@@ -74,15 +77,14 @@ def realizar_analisis_completo(df_encoded, k=3, forzar_entrenamiento=False):
         }
         guardar_artefactos(artefactos, ruta_artefactos)
     
+    # Usar los modelos (cargados o recién entrenados) para predecir
     X_cluster_scaled = artefactos['scaler_cluster'].transform(df_encoded[artefactos['features_cluster']])
     clusters = artefactos['modelo_kmeans'].predict(X_cluster_scaled)
     
     return clusters, artefactos
 
 def interpretar_clusters(df_con_clusters):
-    """Calcula las medias de las características para cada clúster y devuelve la interpretación."""
-    # --- LÍNEA CORREGIDA ---
-    # Ahora incluimos todas las características para un perfil completo.
+    """Calcula las medias de las características para cada clúster y genera una interpretación textual."""
     perfiles = df_con_clusters.groupby('Cluster')[[
         "Horas_de_estudio_por_semana", "Calificacion_promedio",
         "Tiene_espacio_estudio", "Usa_tecnicas_estudio",
@@ -94,22 +96,25 @@ def interpretar_clusters(df_con_clusters):
         horas = row['Horas_de_estudio_por_semana']
         calificacion = row['Calificacion_promedio']
         
-        if horas < 5 and calificacion < 75:
-            tipo = "Estudiantes con Posible Riesgo Académico"
-            recomendacion = "Requieren intervención y seguimiento personalizado."
-        elif horas >= 8 and calificacion < 75:
-            tipo = "Estudiantes Esforzados con Bajo Rendimiento"
-            recomendacion = "Revisar técnicas de estudio y buscar apoyo académico."
-        elif calificacion >= 85:
+        # Lógica mejorada para la interpretación de perfiles
+        if calificacion >= 85:
             tipo = "Estudiantes de Alto Rendimiento"
-            recomendacion = "Podrían actuar como mentores para otros estudiantes."
+            recomendacion = "Fomentar su participación como mentores. Ofrecerles retos académicos avanzados."
+        elif horas >= 15 and calificacion < 75:
+            tipo = "Estudiantes Esforzados con Bajo Rendimiento"
+            recomendacion = "Revisar y optimizar sus técnicas de estudio. Sugerir tutorías para identificar barreras de aprendizaje."
+        elif horas < 8 and calificacion < 70:
+            tipo = "Estudiantes con Posible Riesgo Académico"
+            recomendacion = "Requieren intervención y seguimiento personalizado. Investigar posibles causas externas."
         else:
-            tipo = "Estudiantes Promedio"
-            recomendacion = "Potencial de mejora con estrategias de optimización."
+            tipo = "Estudiantes Promedio/Estándar"
+            recomendacion = "Potencial de mejora con estrategias de gestión del tiempo y técnicas de estudio más activas."
 
         interpretaciones.append({
-            "cluster": cluster_id, "perfil": perfiles.loc[cluster_id].to_dict(),
-            "tipo": tipo, "recomendacion": recomendacion
+            "cluster": cluster_id,
+            "perfil": perfiles.loc[cluster_id].to_dict(),
+            "tipo": tipo,
+            "recomendacion": recomendacion
         })
         
     return perfiles, interpretaciones
