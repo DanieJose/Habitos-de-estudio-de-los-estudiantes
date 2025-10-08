@@ -1,2 +1,2 @@
-# Habitos de estudio de los estudiantes_Pyton Analisis de Datos 
+# Habitos de estudio de los estudiantes_Python Analisis de Datos 
 habitos_estudio_estudiantes
